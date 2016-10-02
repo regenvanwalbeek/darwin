@@ -10,6 +10,27 @@ void main() {
           equals(expectedPrettyPrintGeneNodeTestFixture));
     });
   });
+
+  group("GeneNode", () {
+    test("iterator", () {
+      GeneNode root = _createGeneNodeTestFixture();
+      List<String> expectedNodeIteration = [
+        "Node1",
+        "Child1",
+        "Grandchild1.1",
+        "Grandchild1.2",
+        "Child2",
+        "Grandchild2.1"
+      ];
+
+      int nodeIndex = 0;
+      for (GeneNode node in root) {
+        expect(node.prettyPrintName, equals(expectedNodeIteration[nodeIndex]));
+        nodeIndex++;
+      }
+      expect(nodeIndex, equals(6));
+    });
+  });
 }
 
 GeneNode _createGeneNodeTestFixture() {

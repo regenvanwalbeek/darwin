@@ -94,8 +94,8 @@ abstract class GeneNode extends Iterable<GeneNode> {
 
     if (children != null) {
       for (var childIndex = 0; childIndex < children.length; childIndex++) {
-        treeAsString += children[childIndex].nodeAsString(
-            indent, childIndex == children.length - 1);
+        treeAsString += children[childIndex]
+            .nodeAsString(indent, childIndex == children.length - 1);
       }
     }
 
@@ -104,9 +104,7 @@ abstract class GeneNode extends Iterable<GeneNode> {
 }
 
 class GeneNodeIterator extends Iterator<GeneNode> {
-
   GeneNode _currentNode = null;
-
   List<GeneNode> _nodesToVisit;
 
   GeneNodeIterator(GeneNode startingNode) {
@@ -123,7 +121,9 @@ class GeneNodeIterator extends Iterator<GeneNode> {
     }
 
     _currentNode = _nodesToVisit.removeAt(0);
-    _nodesToVisit.insertAll(0, _currentNode.children);
+    if (_currentNode.children != null) {
+      _nodesToVisit.insertAll(0, _currentNode.children);
+    }
     return true;
   }
 }
