@@ -33,23 +33,39 @@ abstract class ListPhenotype<T> extends Phenotype<T> {
 }
 
 abstract class TreePhenotype<T extends GeneNode> extends Phenotype<T> {
-  GeneNode root;
-
+  T root;
 
   @override
-  String get genesAsString => JSON.encode(root); /// TODO I'm sure this is garbage...
+  String get genesAsString => root.nodeAsString('', true);
 }
 
-class GeneNode extends Iterable<GeneNode> {
+abstract class GeneNode extends Iterable<GeneNode> {
+  /// Parent node in the tree
   GeneNode parent;
+
+  /// Child nodes in the tree
   List<GeneNode> children;
 
-  deepClone(GeneNode parent) {
-    GeneNode clone = new GeneNode();
+  /// How the node should be displayed when printing the tree format
+  String get prettyPrintName;
+
+  /// Helper for adding a child node
+  addChild(GeneNode child) {
+    if (children == null) {
+      children = [];
+    }
+    children.add(child);
+    child.parent = this;
+  }
+
+  GeneNode deepClone(GeneNode parent) {
+    GeneNode clone = deepCloneSubclass();
     clone.parent = parent;
     clone.children = _deepCloneChildren(clone);
     return clone;
   }
+
+  GeneNode deepCloneSubclass(); /// TODO i don't really like this, works for now, come back to this
 
   List<GeneNode> _deepCloneChildren(GeneNode parent) {
     List<GeneNode> clonedChildren = null;
@@ -64,6 +80,27 @@ class GeneNode extends Iterable<GeneNode> {
 
   @override
   Iterator<GeneNode> get iterator => new GeneNodeIterator(this);
+
+  String nodeAsString(String indent, bool isLastChild) {
+    String treeAsString = indent;
+    if (isLastChild) {
+      treeAsString += "\\-";
+      indent += "  ";
+    } else {
+      treeAsString += "|-";
+      indent += "| ";
+    }
+    treeAsString += '$prettyPrintName\n';
+
+    if (children != null) {
+      for (var childIndex = 0; childIndex < children.length; childIndex++) {
+        treeAsString += children[childIndex].nodeAsString(
+            indent, childIndex == children.length - 1);
+      }
+    }
+
+    return treeAsString;
+  }
 }
 
 class GeneNodeIterator extends Iterator<GeneNode> {
