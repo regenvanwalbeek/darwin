@@ -29,7 +29,14 @@ abstract class GenerationBreeder<T extends Phenotype> {
     // TODO: allow for taking more than the very last generation?
     List<T> pool = precursors.last.members.toList(growable: false);
     assert(pool.every((T ph) => ph.result != null));
-    pool.sort((T a, T b) => (a.result - b.result).toInt());
+    pool.sort((T a, T b) {
+      if (a.result > b.result) {
+        return 1;
+      } else if (b.result > a.result) {
+        return -1;
+      }
+      return 0;
+    });
     int length = precursors.last.members.length;
 
     // Elitism
@@ -42,6 +49,7 @@ abstract class GenerationBreeder<T extends Phenotype> {
     while (newGen.members.length < length) {
       T parent1 = getRandomTournamentWinner(pool);
       T parent2 = getRandomTournamentWinner(pool);
+
       /// TODO used to pass in crossoverPointsCount, now it's set directly in the implementation. Does it make sense for Trees to crossover more than once?
       List<T> children = crossoverParents(parent1, parent2);
       children.forEach((T child) {
@@ -92,7 +100,9 @@ abstract class GenerationBreeder<T extends Phenotype> {
     }
   }
 
-  T createGeneticClone(T phenotypeToClone); /// TODO investigate letting the phenotype handle this
+  T createGeneticClone(T phenotypeToClone);
+
+  /// TODO investigate letting the phenotype handle this
 
   /**
    * Returns a [List] of length 2 containing phenotype children created by
@@ -114,10 +124,13 @@ abstract class GenerationBreeder<T extends Phenotype> {
    * Algorithm as described in Jeffrey Horn: The Nature of Niching, pp 20-21.
    * http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.33.8352&rep=rep1&type=pdf
    */
-  void applyFitnessSharingToResults(Generation generation); /// TODO I know nothing about this. Does it make sense for trees?
+  void applyFitnessSharingToResults(Generation generation);
+
+  /// TODO I know nothing about this. Does it make sense for trees?
 }
 
-class ListGenerationBreeder<T extends ListPhenotype> extends GenerationBreeder<T> {
+class ListGenerationBreeder<T extends ListPhenotype>
+    extends GenerationBreeder<T> {
   ListGenerationBreeder(T createBlankPhenotype()) : super(createBlankPhenotype);
 
   @override
@@ -164,7 +177,8 @@ class ListGenerationBreeder<T extends ListPhenotype> extends GenerationBreeder<T
    * The crossover only happens with [crossoverPropability]. Otherwise, exact
    * copies of parents are returned.
    */
-  List<List<Object>> getCrossoverGenes(T a, T b, {int crossoverPointsCount: 2}) {
+  List<List<Object>> getCrossoverGenes(T a, T b,
+      {int crossoverPointsCount: 2}) {
     Math.Random random = new Math.Random();
 
     if (random.nextDouble() < (1 - crossoverPropability)) {
@@ -215,7 +229,8 @@ class ListGenerationBreeder<T extends ListPhenotype> extends GenerationBreeder<T
               other)) // XXX: computing hamming distance twice (in getSimilarPhenotypes and here)
           .fold(
               0,
-              (num sum, num distance) => sum +
+              (num sum, num distance) =>
+                  sum +
                   (1 -
                       Math.pow(distance / fitnessSharingRadius,
                           fitnessSharingAlpha)));
@@ -246,7 +261,8 @@ class ListGenerationBreeder<T extends ListPhenotype> extends GenerationBreeder<T
   }
 }
 
-class TreeGenerationBreeder<T extends TreePhenotype> extends GenerationBreeder<T> {
+class TreeGenerationBreeder<T extends TreePhenotype>
+    extends GenerationBreeder<T> {
   TreeGenerationBreeder(T createBlankPhenotype()) : super(createBlankPhenotype);
 
   @override
@@ -256,6 +272,7 @@ class TreeGenerationBreeder<T extends TreePhenotype> extends GenerationBreeder<T
 
   @override
   T createGeneticClone(T phenotypeToClone) {
+    // TODO thoughts on naming "deepClonePhenotype"?
     T clone = createBlankPhenotype();
     clone.root = phenotypeToClone.root.deepClone(null);
     return clone;
@@ -263,17 +280,30 @@ class TreeGenerationBreeder<T extends TreePhenotype> extends GenerationBreeder<T
 
   @override
   List<T> crossoverParents(T parent1, T parent2) {
+    /// TODO does this have any problems with the phenotype.root reference being incorrect? - yes it does, very subtle....fix the phenotype.root ref when one of the children is a root. that will need a test
     T child1 = createGeneticClone(parent1);
     T child2 = createGeneticClone(parent2);
 
     Math.Random random = new Math.Random();
-    int child1SubtreeIndex = random.nextInt(_getNumDescendants(child1.root));
-    int child2SubtreeIndex = random.nextInt(_getNumDescendants(child2.root));
+    int child1SubtreeIndex =
+        random.nextInt(_getNumDescendants(child1.root) + 1);
+    int child2SubtreeIndex =
+        random.nextInt(_getNumDescendants(child2.root) + 1);
 
-    GeneNode child1Subtree = _getSubtreeAtIndex(child1.root, child1SubtreeIndex);
-    GeneNode child2Subtree = _getSubtreeAtIndex(child2.root, child2SubtreeIndex);
+    GeneNode child1Subtree =
+        _getSubtreeAtIndex(child1.root, child1SubtreeIndex);
+    GeneNode child2Subtree =
+        _getSubtreeAtIndex(child2.root, child2SubtreeIndex);
 
     _swapSubtrees(child1Subtree, child2Subtree);
+
+    if (child2.root == child2Subtree) {
+      child2.root = child1Subtree;
+    }
+
+    if (child1.root == child1Subtree) {
+      child1.root = child2Subtree;
+    }
 
     return [child1, child2];
   }
@@ -334,7 +364,12 @@ class TreeGenerationBreeder<T extends TreePhenotype> extends GenerationBreeder<T
     for (GeneNode node in phenotype.root) {
       if (random.nextDouble() < mutationRate) {
         GeneNode mutatedGene = phenotype.mutateGene(node, mutationStrength);
-        geneIndexToMutation[geneIndex] = mutatedGene;
+        if (mutatedGene != null) {
+          // TODO make sure to add a test for this, useful to have this in there.
+          assert(mutatedGene.parent == null);
+          assert(mutatedGene.children == null);
+          geneIndexToMutation[geneIndex] = mutatedGene;
+        }
       }
       geneIndex++;
     }
@@ -343,8 +378,11 @@ class TreeGenerationBreeder<T extends TreePhenotype> extends GenerationBreeder<T
     geneIndexToMutation.forEach((int geneIndex, GeneNode mutation) {
       GeneNode nodeToReplace = _getSubtreeAtIndex(phenotype.root, geneIndex);
       _replaceNode(nodeToReplace, mutation);
-    });
 
+      if (geneIndex == 0) {
+        phenotype.root = mutation;
+      }
+    });
   }
 
   _replaceNode(GeneNode nodeToReplace, GeneNode newNode) {

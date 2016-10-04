@@ -16,7 +16,8 @@ part of darwin;
  */
 abstract class Phenotype<T> {
   num result = null;
-  num _resultWithFitnessSharingApplied = null; // TODO Is this only applicable for ListPhenotypes?
+  num _resultWithFitnessSharingApplied =
+      null; // TODO Is this only applicable for ListPhenotypes?
 
   T mutateGene(T gene, num strength);
 
@@ -32,6 +33,12 @@ abstract class ListPhenotype<T> extends Phenotype<T> {
   String get genesAsString => JSON.encode(genes);
 }
 
+/// A phenotype that can be represented in tree form, which is useful for
+/// generating a genetic program
+///
+/// Implementations of [mutateGene] can return null to denote that the phenotype
+/// should not be mutated. Else [mutateGene] should return a [GeneNode] with
+/// no parents or children.
 abstract class TreePhenotype<T extends GeneNode> extends Phenotype<T> {
   T root;
 
@@ -65,7 +72,9 @@ abstract class GeneNode extends Iterable<GeneNode> {
     return clone;
   }
 
-  GeneNode deepCloneSubclass(); /// TODO i don't really like this, works for now, come back to this
+  GeneNode deepCloneSubclass();
+
+  /// TODO i don't really like this, works for now, come back to this
 
   List<GeneNode> _deepCloneChildren(GeneNode parent) {
     List<GeneNode> clonedChildren = null;
