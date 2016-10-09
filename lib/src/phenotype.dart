@@ -43,7 +43,11 @@ abstract class TreePhenotype<T extends GeneNode> extends Phenotype<T> {
   T root;
 
   @override
-  String get genesAsString => root.nodeAsString('', true);
+  String get genesAsString {
+    StringBuffer treeBuffer = new StringBuffer('');
+    root.writeTreeToBuffer(treeBuffer, '', true);
+    return treeBuffer.toString();
+  }
 }
 
 abstract class GeneNode extends Iterable<GeneNode> {
@@ -90,25 +94,22 @@ abstract class GeneNode extends Iterable<GeneNode> {
   @override
   Iterator<GeneNode> get iterator => new GeneNodeIterator(this);
 
-  String nodeAsString(String indent, bool isLastChild) {
-    String treeAsString = indent;
+  void writeTreeToBuffer(StringBuffer treeAsString, String indent, bool isLastChild) {
+    treeAsString.write(indent);
     if (isLastChild) {
-      treeAsString += "\\-";
+      treeAsString.write("\\-");
       indent += "  ";
     } else {
-      treeAsString += "|-";
+      treeAsString.write("|-");
       indent += "| ";
     }
-    treeAsString += '$prettyPrintName\n';
+    treeAsString.write('$prettyPrintName\n');
 
     if (children != null) {
       for (var childIndex = 0; childIndex < children.length; childIndex++) {
-        treeAsString += children[childIndex]
-            .nodeAsString(indent, childIndex == children.length - 1);
+        children[childIndex].writeTreeToBuffer(treeAsString, indent, childIndex == children.length - 1);
       }
     }
-
-    return treeAsString;
   }
 }
 
