@@ -130,9 +130,13 @@ class GeneNodeIterator extends Iterator<GeneNode> {
       return false;
     }
 
-    _currentNode = _nodesToVisit.removeAt(0);
-    if (_currentNode.children != null) {
-      _nodesToVisit.insertAll(0, _currentNode.children);
+    /// Always add and remove from the end of _nodesToVisit list for performance
+    _currentNode = _nodesToVisit.removeLast();
+    List<GeneNode> children = _currentNode.children;
+    if (children != null) {
+      for (int nodeIndex = children.length - 1; nodeIndex >= 0; nodeIndex--) {
+        _nodesToVisit.add(children[nodeIndex]);
+      }
     }
     return true;
   }
