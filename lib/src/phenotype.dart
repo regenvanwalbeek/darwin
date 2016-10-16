@@ -15,32 +15,129 @@ part of darwin;
  * strength.
  */
 abstract class Phenotype<T> {
-  List<T> genes;
   num result = null;
-  num _resultWithFitnessSharingApplied = null;
+  num _resultWithFitnessSharingApplied =
+      null; // TODO Is this only applicable for ListPhenotypes?
 
   T mutateGene(T gene, num strength);
 
   toString() => "Phenotype<$genesAsString>";
 
-  String get genesAsString => JSON.encode(genes);
+  String get genesAsString;
+}
 
-  /**
-   * Returns the degree to which this chromosome has dissimilar genes with the
-   * other. If chromosomes are identical, returns [:0.0:]. If all genes are
-   * different, returns [:1.0:].
-   *
-   * Genes are considered different when they are not equal. There is no
-   * half-different gene (which would make sense for [num] genes, for example).
-   */
-  num computeHammingDistance(Phenotype<T> other) {
-    int length = genes.length;
-    int similarCount = 0;
-    for (int i = 0; i < genes.length; i++) {
-      if (genes[i] == other.genes[i]) {
-        similarCount++;
+abstract class ListPhenotype<T> extends Phenotype<T> {
+  List<T> genes;
+
+  @override
+  String get genesAsString => JSON.encode(genes);
+}
+
+/// A phenotype that can be represented in tree form, which is useful for
+/// generating a genetic program
+///
+/// Implementations of [mutateGene] can return null to denote that the phenotype
+/// should not be mutated. Else [mutateGene] should return a [GeneNode] with
+/// no parents or children.
+abstract class TreePhenotype<T extends GeneNode> extends Phenotype<T> {
+  T root;
+
+  @override
+  String get genesAsString {
+    StringBuffer treeBuffer = new StringBuffer('');
+    root.writeTreeToBuffer(treeBuffer, '', true);
+    return treeBuffer.toString();
+  }
+}
+
+abstract class GeneNode extends Iterable<GeneNode> {
+  /// Parent node in the tree
+  GeneNode parent;
+
+  /// Child nodes in the tree
+  List<GeneNode> children;
+
+  /// How the node should be displayed when printing the tree format
+  String get prettyPrintName;
+
+  /// Helper for adding a child node
+  addChild(GeneNode child) {
+    if (children == null) {
+      children = [];
+    }
+    children.add(child);
+    child.parent = this;
+  }
+
+  GeneNode deepClone(GeneNode parent) {
+    GeneNode clone = deepCloneSubclass();
+    clone.parent = parent;
+    clone.children = _deepCloneChildren(clone);
+    return clone;
+  }
+
+  GeneNode deepCloneSubclass();
+
+  /// TODO i don't really like this, works for now, come back to this
+
+  List<GeneNode> _deepCloneChildren(GeneNode parent) {
+    List<GeneNode> clonedChildren = null;
+    if (children != null) {
+      clonedChildren = [];
+      children.forEach((GeneNode child) {
+        clonedChildren.add(child.deepClone(parent));
+      });
+    }
+    return clonedChildren;
+  }
+
+  @override
+  Iterator<GeneNode> get iterator => new GeneNodeIterator(this);
+
+  void writeTreeToBuffer(StringBuffer treeAsString, String indent, bool isLastChild) {
+    treeAsString.write(indent);
+    if (isLastChild) {
+      treeAsString.write("\\-");
+      indent += "  ";
+    } else {
+      treeAsString.write("|-");
+      indent += "| ";
+    }
+    treeAsString.write('$prettyPrintName\n');
+
+    if (children != null) {
+      for (var childIndex = 0; childIndex < children.length; childIndex++) {
+        children[childIndex].writeTreeToBuffer(treeAsString, indent, childIndex == children.length - 1);
       }
     }
-    return (1 - similarCount / length);
+  }
+}
+
+class GeneNodeIterator extends Iterator<GeneNode> {
+  GeneNode _currentNode = null;
+  List<GeneNode> _nodesToVisit;
+
+  GeneNodeIterator(GeneNode startingNode) {
+    _nodesToVisit = [startingNode];
+  }
+
+  @override
+  GeneNode get current => _currentNode;
+
+  @override
+  bool moveNext() {
+    if (_nodesToVisit.isEmpty) {
+      return false;
+    }
+
+    /// Always add and remove from the end of _nodesToVisit list for performance
+    _currentNode = _nodesToVisit.removeLast();
+    List<GeneNode> children = _currentNode.children;
+    if (children != null) {
+      for (int nodeIndex = children.length - 1; nodeIndex >= 0; nodeIndex--) {
+        _nodesToVisit.add(children[nodeIndex]);
+      }
+    }
+    return true;
   }
 }

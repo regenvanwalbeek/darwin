@@ -24,8 +24,10 @@ class GeneticAlgorithm<T extends Phenotype> {
   final GenerationBreeder breeder;
 
   GeneticAlgorithm(Generation firstGeneration, this.evaluator, this.breeder,
-      {this.printf: print, this.statusf: print})
-      : generationSize = firstGeneration.members.length {
+      {PrintFunction printf: print, PrintFunction statusf: print})
+      : generationSize = firstGeneration.members.length,
+        _printf = printf,
+        _statusf = statusf {
     generations.add(firstGeneration);
     evaluator._printf = printf;
 
@@ -39,18 +41,35 @@ class GeneticAlgorithm<T extends Phenotype> {
     return _doneCompleter.future;
   }
 
+  final PrintFunction _printf;
+
   /**
    * Function used for printing info about the progress of the genetic
    * algorithm. This is the standard console [print] by default.
    */
-  final PrintFunction printf;
+  printf(String stringToPrint) {
+    if (_printf == null) {
+      return;
+    }
+
+    _printf(stringToPrint);
+  }
+
+  final PrintFunction _statusf;
+
   /**
    * Function used for showing status of the genetic algorithm, with the
    * assumption that previous status text is rewritten by new status text.
    * This is also initialized with [print] by default, but that's not
    * the ideal implementation.
    */
-  final PrintFunction statusf;
+  statusf(String stringToDisplay) {
+    if (_statusf == null) {
+      return;
+    }
+
+    _statusf(stringToDisplay);
+  }
 
   void _evaluateNextGeneration() {
     evaluateLastGeneration().then((_) {
@@ -89,9 +108,14 @@ BEST ${generations.last.bestFitness.toStringAsFixed(2)}
   void _createNewGeneration() {
     printf("CREATING NEW GENERATION");
     generations.add(breeder.breedNewGeneration(generations));
-    printf("var newGen = [");
-    generations.last.members.forEach((ph) => printf("${ph.genesAsString},"));
-    printf("];");
+
+    // calculating genesAsString can be expensive, so null check before deciding to print
+    if (_printf != null) {
+      printf("var newGen = [");
+      generations.last.members.forEach((ph) => printf("${ph.genesAsString},"));
+      printf("];");
+    }
+
     while (generations.length > MAX_GENERATIONS_IN_MEMORY) {
       printf("- exceeding max generations, removing one from memory");
       generations.removeAt(0);
