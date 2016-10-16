@@ -37,11 +37,7 @@ void main() {
           () => new MyTreePhenotype())..crossoverPropability = 0.8;
 
       algo = new GeneticAlgorithm(firstGeneration, evaluator, breeder,
-          printf: (_) {
-        return;
-      }, statusf: (_) {
-        return;
-      });
+          printf: null, statusf: null);
 
       algo.THRESHOLD_RESULT = .1;
     });
